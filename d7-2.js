@@ -9,7 +9,7 @@ const input = strInput
       .split(",")
       .map(n => Number(n));
 
-function run(inputCh, outputCh) {
+function amp(inputCh, outputCh) {
     return new Promise(async (resolve) => {
         let pos = 0;
         const program = input.slice(0); // clone
@@ -69,6 +69,19 @@ function run(inputCh, outputCh) {
     });
 }
 
+function getParams(n, pos, program, paramModes) {
+    const params = program.slice(pos + 1, pos + 1 + n);
+    return params.map((p, i) => (paramModes[i] === "1" ? p : program[p]));
+}
+
+function decode(instr) {
+    const [...digits] = instr.toString();
+    return {
+        op: Number(digits.slice(digits.length - 2).join("")),
+        paramModes: digits.slice(0, digits.length - 2).reverse()
+    };
+}
+
 function channel(initialValue) {
     const evt = new events.EventEmitter();
     const buffer = [initialValue];
@@ -84,19 +97,6 @@ function channel(initialValue) {
     }
 }
 
-function getParams(n, pos, program, paramModes) {
-    const params = program.slice(pos + 1, pos + 1 + n);
-    return params.map((p, i) => (paramModes[i] === "1" ? p : program[p]));
-}
-
-function decode(instr) {
-    const [...digits] = instr.toString();
-    return {
-        op: Number(digits.slice(digits.length - 2).join("")),
-        paramModes: digits.slice(0, digits.length - 2).reverse()
-    };
-}
-
 function allPhaseSettings(pv) {
     const settings = [];
     pv.forEach(a => pv.forEach(b => pv.forEach(c => pv.forEach(d => pv.forEach(async e => {
@@ -108,16 +108,16 @@ function allPhaseSettings(pv) {
     return settings;
 }
 
-async function start() {
+async function run() {
     const settings = allPhaseSettings([5, 6, 7, 8, 9]);
     const work = settings.map(async setting => {
         const [ea, ab, bc, cd, de] = setting.map(channel);
         ea.write(0);
-        await Promise.all([run(ea, ab), run(ab, bc), run(bc, cd), run(cd, de), run(de, ea)]);
+        await Promise.all([amp(ea, ab), amp(ab, bc), amp(bc, cd), amp(cd, de), amp(de, ea)]);
         return ea.read();
     });
     const signals = await Promise.all(work);
     console.log("Part 2", signals.sort((a, b) => b - a)[0]);
 }
 
-start();
+run();
