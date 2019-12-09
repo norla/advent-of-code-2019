@@ -3,62 +3,78 @@
 const fs = require("fs");
 const events = require("events");
 
-const strInput = fs.readFileSync("./input/d7.txt", "utf-8")
+const strInput = fs.readFileSync("./input/d9.txt", "utf-8")
 
-const input = strInput
+let input;
+
+input = [
+    109,1, // incease base 1
+    204,-1, // outout base - 1
+    1001,100,1,100, // $100 ++
+    1008,100,16,101, // $101 = true if 100 eq 16
+    1006,101,0, // start over if 101 eq 0
+    99];
+
+input = strInput
       .split(",")
       .map(n => Number(n));
 
 function amp(inputCh, outputCh) {
     return new Promise(async (resolve) => {
-        let pos = 0;
+        let pos = 0, base = 0;
         const program = input.slice(0); // clone
         while (true) {
             const [opCode] = program.slice(pos, pos + 1);
+            //console.log(opCode);
             const { op, paramModes } = decode(opCode);
             let p1, p2, pR;
             switch (op) {
-                case 1:
-                    [p1, p2] = getParams(2, pos, program, paramModes);
-                    pR = program[pos + 3];
+                case 1: // add
+                    [p1, p2] = getParams(2, pos, program, paramModes, base);
+                    pR = program[pos + 3] + (paramModes[2] === "2" ? base : 0);
                     program[pR] = p1 + p2;
                     pos += 4;
                     break;
-                case 2:
-                    [p1, p2] = getParams(2, pos, program, paramModes);
-                    pR = program[pos + 3];
+                case 2: // mul
+                    [p1, p2] = getParams(2, pos, program, paramModes, base);
+                    pR = program[pos + 3] + (paramModes[2] === "2" ? base : 0);
                     program[pR] = p1 * p2;
                     pos += 4;
                     break;
-                case 3:
-                    p1 = program[pos + 1];
+                case 3: // read
+                    p1 = program[pos + 1] + (paramModes[0] === "2" ? base : 0); //getParams(1, pos, program, paramModes, base);
                     program[p1] = await inputCh.read();
                     pos += 2;
                     break;
-                case 4:
-                    [p1] = getParams(1, pos, program, paramModes);
+                case 4: //write
+                    [p1] = getParams(1, pos, program, paramModes, base);
                     outputCh.write(p1);
                     pos += 2;
                     break;
-                case 5:
-                    [p1, p2] = getParams(2, pos, program, paramModes);
+                case 5: // jmp if non-zero
+                    [p1, p2] = getParams(2, pos, program, paramModes, base);
                     pos = p1 !== 0 ? p2 : pos + 3;
                     break;
-                case 6:
-                    [p1, p2] = getParams(2, pos, program, paramModes);
+                case 6: // jmp if zerp
+                    [p1, p2] = getParams(2, pos, program, paramModes, base);
                     pos = p1 === 0 ? p2 : pos + 3;
                     break;
-                case 7:
-                    [p1, p2] = getParams(2, pos, program, paramModes);
-                    pR = program[pos + 3];
+                case 7: // less than
+                    [p1, p2, pR] = getParams(2, pos, program, paramModes, base);
+                    pR = program[pos + 3] + (paramModes[2] === "2" ? base : 0);
                     program[pR] = p1 < p2 ? 1 : 0;
                     pos += 4;
                     break;
-                case 8:
-                    [p1, p2] = getParams(2, pos, program, paramModes);
-                    pR = program[pos + 3];
+                case 8: // eq
+                    [p1, p2] = getParams(2, pos, program, paramModes, base);
+                    pR = program[pos + 3] + (paramModes[2] === "2" ? base : 0);
                     program[pR] = p1 === p2 ? 1 : 0;
                     pos += 4;
+                    break;
+                case 9: // modify base
+                    [p1] = getParams(1, pos, program, paramModes, base);
+                    base = base + p1;
+                    pos += 2;
                     break;
                 case 99:
                     return resolve();
@@ -68,69 +84,54 @@ function amp(inputCh, outputCh) {
         }
     });
 }
-/*
- Advent of Code[About][Events][Shop][Settings][Log Out]norla 16*
-   0x0000|2019[Calendar][AoC++][Sponsors][Leaderboard][Stats]
-Our sponsors help make Advent of Code possible:
-BeastieJob.com - Freelancers, helping Santa for free? Yes can do! Join us!
---- Day 9: Sensor Boost ---
-You've just said goodbye to the rebooted rover and left Mars when you receive a faint distress signal
-coming from the asteroid belt. It must be the Ceres monitoring station!
+function getParams(n, pos, program, paramModes, base) {
+    const params = program.slice(pos + 1, pos + 1 + n);
+    const ret = params.map((p, i) => {
+        const pMode = paramModes[i];
+        if (pMode === "1") return p;
+        else if (pMode === "2") return program[p + base] || 0
+        else return program[p] || 0
+    });
+    //console.log("PARAMS", ret, paramModes, program.slice(pos + 1, pos + 1 + n), base);
+    return ret;
+}
 
-In order to lock on to the signal, you'll need to boost your sensors. The Elves send up the
-latest BOOST program - Basic Operation Of System Test.
+function decode(instr) {
+    const [...digits] = instr.toString();
+    return {
+        op: Number(digits.slice(digits.length - 2).join("")),
+        paramModes: digits.slice(0, digits.length - 2).reverse()
+    };
+}
 
-While BOOST (your puzzle input) is capable of boosting your sensors, for tenuous safety reasons,
-it refuses to do so until the computer it runs on passes some checks to demonstrate it is a complete Intcode computer.
-
-Your existing Intcode computer is missing one key feature: it needs support for parameters in relative mode.
-
-Parameters in mode 2, relative mode, behave very similarly to parameters in position mode:
-the parameter is interpreted as a position. Like position mode, parameters in relative mode
-can be read from or written to.
-
-The important difference is that relative mode parameters don't count from address 0.
-Instead, they count from a value called the relative base. The relative base starts at 0.
-
-The address a relative mode parameter refers to is itself plus the current relative base.
-When the relative base is 0, relative mode parameters and position mode parameters with the
-same value refer to the same address.
-
-For example, given a relative base of 50, a relative mode parameter of -7 refers to memory
-address 50 + -7 = 43.
-
-The relative base is modified with the relative base offset instruction:
-
-Opcode 9 adjusts the relative base by the value of its only parameter. The relative base i
-ncreases (or decreases, if the value is negative) by the value of the parameter.
-For example, if the relative base is 2000, then after the instruction 109,19, the relative
-base would be 2019. If the next instruction were 204,-34, then the value at address 1985 would be output.
-
-Your Intcode computer will also need a few other capabilities:
-
-The computer's available memory should be much larger than the initial program. Memory beyond
-the initial program starts with the value 0 and can be read or written like any other memory.
-(It is invalid to try to access memory at a negative address, though.)
-The computer should have support for large numbers. Some instructions near the beginning of
-the BOOST program will verify this capability.
-Here are some example programs that use these features:
-
-109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99 takes no input and produces a copy
-of itself as output.
-1102,34915192,34915192,7,4,7,99,0 should output a 16-digit number.
-104,1125899906842624,99 should output the large number in the middle.
-The BOOST program will ask for a single input; run it in test mode by providing it the value 1.
-It will perform a series of checks on each opcode, output any opcodes (and the associated parameter modes)
-that seem to be functioning incorrectly, and finally output a BOOST keycode.
-
-Once your Intcode computer is fully functional, the BOOST program should report no malfunctioning
-opcodes when run in test mode; it should only output a single value, the BOOST keycode. What
-BOOST keycode does it produce?
-
-To begin, get your puzzle input.
-
-Answer:
+function channel(initialValue) {
+    const evt = new events.EventEmitter();
+    const buffer = [initialValue];
+    return {
+        write: (d) => {
+        //    console.log("WRITE" , d)
+            buffer.push(d);
+            evt.emit("data", d);
+        },
+        read: () => {
+            if (buffer.length > 0) return Promise.resolve(buffer.shift());
+            return new Promise((resolve) => evt.once("data", () => resolve(buffer.shift())));
+        },
+        evt
+    }
+}
 
 
-You can also [Share] this puzzle.
- */
+async function run () {
+    const input = channel(1);
+    const output = channel();
+    output.evt.on("data", (d) => {console.log("Part 1" , d)});
+    await amp(input, output);
+
+    const input2 = channel(2)
+    const output2 = channel()
+    output2.evt.on("data", (d) => {console.log("Part 2" , d)});
+    await amp(input2, output2);
+}
+
+run()
