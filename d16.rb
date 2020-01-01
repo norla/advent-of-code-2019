@@ -18,7 +18,6 @@ end
 def run(input, n)
   digits = String(input).split("").map{|x| x.to_i}
   n.times do |i|
-    p i
     digits = fft(digits)
   end
   digits
