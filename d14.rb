@@ -65,45 +65,42 @@ ex5 = [
   "5 BHXH, 4 VRPVC => 5 LTCX"
 ]
 input = File.readlines("./input/d14.txt") #ex5
+#input = ex5
 
 reactions = input.reduce({}){ |acc, l|
   left, right = l.split(" => ")
   prodQ, prodC = right.split(" ")
-  acc[prodC] = left.split(", ").reduce({q: prodQ.to_i, from: {}}){ |acc2, r|
+  acc[prodC] = left.split(", ").reduce({amount: prodQ.to_i, sources: {}}){ |acc2, r|
     fromQ, fromC = r.split(" ")
-    acc2[:from][fromC] = fromQ.to_i
+    acc2[:sources][fromC] = fromQ.to_i
     acc2
   }
   acc
 }
-p reactions 
+require "pp"
+pp reactions
 needs = {"FUEL" => 1}
-oreNeeds = {}
-while needs.keys != [] do
- # p needs
-  newNeeds = {}
-  needs.each do |c, q|
-    reaction = reactions[c];
-    multiplier = (q.to_f / reaction[:q]).ceil()
-    if reaction[:from].keys == ["ORE"]
-      oreNeeds[c] = (oreNeeds[c] or 0) + q
-      next
-    end
-    reaction[:from].each do |fromC, fromQ|
-      amount = fromQ * multiplier
-      newNeeds[fromC] = newNeeds[fromC] ? newNeeds[fromC] + amount : amount
+leftovers = {}
+while needs.keys != ["ORE"] do
+  p needs
+  newNeeds = {"ORE" => needs["ORE"]}
+  needs.each do |need, needAmount|
+    next if need == "ORE"
+    leftover = [(leftovers[need] or 0), needAmount].min
+    leftovers[need] = (leftovers[need] or 0) - leftover;
+    needAmount -= leftover
+    reaction = reactions[need];
+    nReactions = (needAmount.to_f / reaction[:amount]).ceil
+    surplus = reaction[:amount] * nReactions - needAmount
+    leftovers[need] = (leftovers[need] or 0) + surplus
+    puts "Need %d %s from reaction giving %d which will require %d reaction(s) leaving surplus %d" %
+         [needAmount, need, reaction[:amount], nReactions, surplus]
+    reaction[:sources].each do |source, sourceAmount|
+      amount = sourceAmount * nReactions
+      newNeeds[source] = newNeeds[source] ? newNeeds[source] + amount : amount
     end
   end
   needs = newNeeds
 end
 
-p oreNeeds
-ore = 0
-oreNeeds.each do |c, q|
-    reaction = reactions[c];
-    multiplier = (q.to_f / reaction[:q]).ceil()
-    p [c, q, multiplier]
-    ore += reaction[:from]["ORE"] * multiplier
-end
-
-p ore
+p needs
