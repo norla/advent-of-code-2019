@@ -64,14 +64,34 @@ program.on("data", (data) => {
      }
 });
 
-program.on("end", () => {
+program.on("end", async () => {
     console.log(solutions);
+    let oxygens = [(Object.entries(map).find(e => e[1]=== "X")[0])];
+    let mins = 0;
+    while(oxygens.length > 0) {
+        mins += 1;
+        //console.log (oxygens);
+        oxygens.forEach(o => map[o] = "O")
+        oxygens = oxygens
+            .map(oxygen => {
+                const [x, y] = JSON.parse(oxygen);
+                const surrounds = [[x, y + 1], [x, y - 1], [x - 1, y], [x + 1, y]].map(key);
+                return Object.entries(map)
+                             .filter(([pKey, item]) => item === "." && surrounds.includes(pKey))
+                             .map(([pKey]) => pKey)
+            })
+            .flat();
+        draw();
+        await new Promise((r) => setTimeout(r, 20));
+    }
+    console.log(mins - 1);
 });
 
 // Helpers
 
 function draw() {
     let maxX = 0, maxY = 0, minX = 0, minY = 0;
+    const droidGraphics = {"N": "v", "S": "^", "E": ">", "W": "<"}
     Object.keys(map).forEach(posKey => {
         const [x, y] = JSON.parse(posKey);
         maxX = Math.max(maxX, x);
@@ -82,8 +102,9 @@ function draw() {
     let buffer = "";
     for (let y = minY - 1; y <= maxY + 1; y++) {
         for (let x = minX - 1; x <= maxX + 1; x++) {
-            if (trail[trail.length - 1].pos[0] === x && trail[trail.length - 1].pos[1] === y ) {
-                buffer += "D";
+            const step = trail[trail.length - 1];
+            if (step && step.pos[0] === x && step.pos[1] === y ) {
+                buffer += droidGraphics[opposite[step.back]];
             } else {
                 buffer += map[key([x, y])] || " ";
             }
