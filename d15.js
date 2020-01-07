@@ -36,6 +36,11 @@ function nextInput() {
 }
 
 program.on("data", (data) => {
+    if (backtrack) {
+        backtrack = false;
+        return;
+    }
+
     const currentStep = trail[trail.length - 1];
     const nextPos = move(direction, currentStep.pos);
 
@@ -50,10 +55,6 @@ program.on("data", (data) => {
               .filter(d => d !== back)
               .filter(d => !trail.map(({pos}) => key(pos)).includes(key(nextPos)))
         trail.push({todo: validMovements, pos: nextPos, back})
-    }
-
-    if (backtrack) {
-        backtrack = false;
     }
 
     if (data === 2) {
