@@ -28,7 +28,7 @@ function nextInput() {
     if (currentStep.todo.length === 0) {
         trail.pop();
         backtrack = true;
-        return delay(directions[currentStep.back]);
+        return delay(directions[currentStep.back], 0);
     } else {
         direction = currentStep.todo.pop();
         return delay(directions[direction]);
@@ -82,7 +82,7 @@ program.on("end", async () => {
             })
             .flat();
         draw();
-        await new Promise((r) => setTimeout(r, 20));
+        await new Promise((r) => setTimeout(r, 30));
     }
     console.log(mins - 1);
 });
@@ -104,7 +104,7 @@ function draw() {
         for (let x = minX - 1; x <= maxX + 1; x++) {
             const step = trail[trail.length - 1];
             if (step && step.pos[0] === x && step.pos[1] === y ) {
-                buffer += droidGraphics[opposite[step.back]];
+                buffer += "\x1b[31m" + droidGraphics[opposite[step.back]] + "\x1b[0m";
             } else {
                 buffer += map[key([x, y])] || " ";
             }
@@ -116,4 +116,4 @@ function draw() {
 }
 
 const key = (x) => JSON.stringify(x);
-const delay = (v) => new Promise((resolve) => setTimeout(() => resolve(v), 20));
+const delay = (v, ms=30) => new Promise((resolve) => setTimeout(() => resolve(v), ms));
